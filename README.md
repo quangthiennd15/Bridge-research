@@ -1,1 +1,1 @@
-# Use polygon-edge v1.0.0
+# Research about brigde technology
