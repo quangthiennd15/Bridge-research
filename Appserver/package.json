@@ -1,0 +1,33 @@
+{
+  "name": "nodejs",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "nodemon index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/quangthiennd15/nodejs.git"
+  },
+  "keywords": [
+    "nodejs"
+  ],
+  "author": "thiennq",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/quangthiennd15/nodejs/issues"
+  },
+  "homepage": "https://github.com/quangthiennd15/nodejs#readme",
+  "dependencies": {
+    "commander": "^11.0.0",
+    "ejs": "^3.1.9",
+    "express": "^4.18.2",
+    "mongoose": "^7.3.3",
+    "sqlite3": "^5.1.6"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
