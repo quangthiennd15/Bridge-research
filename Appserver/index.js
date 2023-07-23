@@ -1,8 +1,14 @@
+
 const express = require("express");
 const path = require("path");
 const sqlite3 = require("sqlite3").verbose();
-
+const dotenv = require("dotenv");
 const app = express();
+
+var bodyParser = require('body-parser')
+app.use(bodyParser.urlencoded({ extended: false }))
+app.use(bodyParser.json())
+
 
 const db_name = path.join(__dirname, "data", "apptest.db");
 const db = new sqlite3.Database(db_name, (err) => {
@@ -16,13 +22,16 @@ const db = new sqlite3.Database(db_name, (err) => {
 const sql_create = ` CREATE TABLE IF NOT EXISTS data_native (
     AccRootchain VARCHAR(100) NOT NULL,
     PKRootchain VARCHAR(100) NOT NULL,
-    RPCRootchain VARCHAR(100) NOT NULL,
     AddTokenRootchain VARCHAR(100) NOT NULL,
     AddERC20Predicate VARCHAR(100) NOT NULL,
+    RPCRootchain VARCHAR(100) NOT NULL,
+
     AddChildToken VARCHAR(100) NOT NULL,
     RPCChildChain VARCHAR(100) NOT NULL,
+
     ExitHelper VARCHAR(100) NOT NULL,
-    ExitID VARCHAR(100) NOT NULL
+    IDexit VARCHAR(100) NOT NULL
+
   );`;
 
 app.get("/nativebridge", (req, res) => {
@@ -34,37 +43,108 @@ app.get("/nativebridge", (req, res) => {
     });
 });
 
-// Insert data to data_native table
-const sql_insert = `INSERT INTO data_native (AccRootchain, PKRootchain, RPCRootchain, AddTokenRootchain, AddERC20Predicate, AddChildToken, RPCChildChain, ExitHelper, ExitID ) VALUES
- ('0x35A657d6994E48d600De79308cF5Cc7EbA7b1Ef8', 'e8b9049bda2bdb4e7c60ea183933d5b1124e0282ed9d33a4ac87715e62d7a858', 'http://18.224.19.137:8545', '0x94C3a87e8C470C73DcFb825dB699cB3C29d8Fc36','0xCb4D6a35C5D3551b3BD0f306bCd642fe318eAD66', '0x334899Aa7773E07bd2CE3235820e64fDc705f1aB', 'http://127.0.0.1:10001', '0x9DB8A31D11c007B82E905204b397815AD2D7B0Fa','')`;
-app.get("/nativebridge/insert", (req, res) => {
-    db.run(sql_insert, (err) => {
-        if (err) {
-            return console.error(err.message);
-        }
-        res.send("Successful add information to data_native table ");
-    });
-});
 
-// Get information from data_native table
-app.get("/nativebridge/getinfor", (req, res) => {
+app.get("/nativebridge/getinfor", (req, res) =>{
     const query = `SELECT * FROM data_native`;
-    db.get(query, (err, row) => {
+    var params = []
+    db.all(query, params, (err, rows) => {
         if (err) {
-            console.error("Error querying the database:", err);
-            return;
+          res.status(400).json({"error":err.message});
+          return;
         }
-
-        if (!row) {
-            console.error("No matching record found in the database.");
-            return;
-        }
-        res.send(row);
-    });
+        res.json({
+            "message":"success",
+            "data":rows
+        })
+      });
 });
+
 
 // ============================= NATIVE BRIDGE =============================================
 // Deposit Function
+// AccRootchain = row["AccRootchain"];
+    //     const PKRootchain = row["PKRootchain"];
+    //     const RPCRootchain = row["RPCRootchain"];
+    //     const AddTokenRootchain = row["AddTokenRootchain"];
+    //     const AddERC20Predicate 
+
+
+// Insert information of layer 1
+app.post("/nativebridge/insertLayer1", (req, res) => {
+    var errors=[];
+
+    if (!req.body.AccRootchain){
+        errors.push("No account in rootchain specified");
+    }
+    if (!req.body.PKRootchain){
+        errors.push("No Private key of account in rootchain specified");
+    }
+    if (!req.body.AddTokenRootchain){
+        errors.push("No address of token in rootchain specified");
+    }
+    if (!req.body.AddERC20Predicate){
+        errors.push("No address of token ERC20 predicate in rootchain specified");
+    }
+    if (!req.body.RPCRootchain){
+        errors.push("No RPC of rootchain specified");
+    }
+    if (errors.length){
+        res.status(400).json({"error":errors.join(",")});
+        return;
+    }
+    var data = {
+        AccRootchain: req.body.AccRootchain,
+        PKRootchain: req.body.PKRootchain,
+        AddTokenRootchain: req.body.AddTokenRootchain,
+        AddERC20Predicate: req.body.AddERC20Predicate,
+        RPCRootchain: req.body.RPCRootchain
+    }
+ 
+    var sql =`INSERT INTO data_native (AccRootchain, PKRootchain, AddTokenRootchain, AddERC20Predicate, RPCRootchain, AddChildToken, RPCChildChain, ExitHelper, IDexit) VALUES (?,?,?,?,?,'','','','')`
+    var params =[data.AccRootchain, data.PKRootchain, data.AddTokenRootchain, data.AddERC20Predicate, data.RPCRootchain]
+
+    db.run(sql,params, function (err, result) {
+        if (err){
+            res.status(400).json({"error": err.message})
+            return;
+        }
+            res.send('Insert information of layer1 successfull!');
+    });
+});
+
+// Insert information of layer 2
+app.post("/nativebridge/insertLayer2", (req, res) => {
+    var errors=[];
+
+    if (!req.body.AddChildToken){
+        errors.push("No account in childchain specified");
+    }
+    if (!req.body.RPCChildChain){
+        errors.push("No have RPC of rootchain specified");
+    }
+    if (errors.length){
+        res.status(400).json({"error":errors.join(",")});
+        return;
+    }
+ 
+    var data = {
+        AddChildToken: req.body.AddChildToken,
+        RPCChildChain: req.body.RPCChildChain
+    }
+    var sql ='UPDATE data_native SET (AddChildToken, RPCChildChain) = (?,?)'
+    var params =[data.AddChildToken, data.RPCChildChain]
+
+    db.run(sql, params, function (err, result) {
+        if (err){
+            res.status(400).json({"error": err.message})
+            return;
+        }
+            res.send('Insert information of layer2 successfull!');
+    });
+});
+
+
+// Deposit Funtion
 const { exec } = require("child_process");
 app.get("/nativebridge/deposit", (req, res) => {
     const query = `SELECT * FROM data_native`;
@@ -84,7 +164,7 @@ app.get("/nativebridge/deposit", (req, res) => {
         const AddTokenRootchain = row["AddTokenRootchain"];
         const AddERC20Predicate = row["AddERC20Predicate"];
 
-        const command = `go run main.go bridge deposit-erc20 --sender-key ${PKRootchain} --receivers ${AccRootchain} --amounts 100 --root-token ${AddTokenRootchain} --root-predicate ${AddERC20Predicate} --json-rpc ${RPCRootchain} --minter-key ${PKRootchain}`;
+        const command = `./polygon-edge bridge deposit-erc20 --sender-key ${PKRootchain} --receivers ${AccRootchain} --amounts 100 --root-token ${AddTokenRootchain} --root-predicate ${AddERC20Predicate} --json-rpc ${RPCRootchain} --minter-key ${PKRootchain}`;
 
         exec(command, (error, stdout, stderr) => {
             if (error) {
@@ -100,6 +180,7 @@ app.get("/nativebridge/deposit", (req, res) => {
         });
     });
 });
+
 
 // Withdraw Function
 app.get("/nativebridge/withdraw", (req, res) => {
@@ -118,7 +199,7 @@ app.get("/nativebridge/withdraw", (req, res) => {
         const PKRootchain = row["PKRootchain"];
         const AddChildToken = row["AddChildToken"];
         const RPCChildChain = row["RPCChildChain"];
-        const command = `go run main.go bridge withdraw-erc20 --sender-key ${PKRootchain} --receivers ${AccRootchain} --amounts 100 --child-predicate 0x0000000000000000000000000000000000001004 --child-token ${AddChildToken} --json-rpc ${RPCChildChain}`;
+        const command = `./polygon-edge bridge withdraw-erc20 --sender-key ${PKRootchain} --receivers ${AccRootchain} --amounts 100 --child-predicate 0x0000000000000000000000000000000000001004 --child-token ${AddChildToken} --json-rpc ${RPCChildChain}`;
 
         exec(command, (error, stdout, stderr) => {
             if (error) {
@@ -135,10 +216,37 @@ app.get("/nativebridge/withdraw", (req, res) => {
     });
 });
 
+
 // Exit Withdraw Function
-app.get("/nativebridge/exit/:id", (req, res) => {
-    const query = `SELECT * FROM data_native`;
-    db.get(query, (err, row) => {
+app.post("/nativebridge/withdraw/exit", (req, res) => {
+    var errors=[];
+
+    if (!req.body.ExitHelper){
+        errors.push("No address exithelper specified");
+    }
+    if (!req.body.IDexit){
+        errors.push("No ID exit rootchain specified");
+    }
+    if (errors.length){
+        res.status(400).json({"error":errors.join(",")});
+        return;
+    }
+ 
+    var data = {
+        ExitHelper: req.body.ExitHelper,
+        IDexit: req.body.IDexit
+    }
+    var sql ='UPDATE data_native SET (ExitHelper, IDexit) = (?,?)'
+    var params =[data.ExitHelper, data.IDexit]
+
+    db.run(sql, params, function (err, result) {
+        if (err){
+            res.status(400).json({"error": err.message})
+            return;
+        }
+
+        const query = `SELECT * FROM data_native`;
+        db.get(query, (err, row) => {
         if (err) {
             console.error("Error querying the database:", err);
             return;
@@ -151,9 +259,8 @@ app.get("/nativebridge/exit/:id", (req, res) => {
         const PKRootchain = row["PKRootchain"];
         const RPCChildChain = row["RPCChildChain"];
         const RPCRootchain = row["RPCRootchain"];
-        const ExitHelper = row["ExitHelper"];
 
-        const command = `go run main.go bridge exit --sender-key ${PKRootchain} --exit-helper ${ExitHelper} --exit-id ${req.params.id} --root-json-rpc ${RPCRootchain} --child-json-rpc ${RPCChildChain}`;
+        const command = `./polygon-edge bridge exit --sender-key ${PKRootchain} --exit-helper ${data.ExitHelper} --exit-id ${data.IDexit} --root-json-rpc ${RPCRootchain} --child-json-rpc ${RPCChildChain}`;
 
         exec(command, (error, stdout, stderr) => {
             if (error) {
@@ -168,7 +275,11 @@ app.get("/nativebridge/exit/:id", (req, res) => {
             res.send(`Command execution stdout: ${stdout}`);
         });
     });
+            
+    });
 });
+
+
 
 // ============================= CHAINBRIDGE =============================================
 const sqlite_create = ` CREATE TABLE IF NOT EXISTS data_chain (
