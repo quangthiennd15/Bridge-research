@@ -48,6 +48,7 @@ app.post("/nativebridge/deposit", (req, res) => {
     exec(command, (error, stdout, stderr) => {
             if (error) {
                 console.error(`Command execution error: ${error.message}`);
+                res.send(`Deposit failed!!! Command execution error: ${error.message}`)
                 return;
             }
 
@@ -85,6 +86,7 @@ app.post("/nativebridge/withdraw", (req, res) => {
     exec(command, (error, stdout, stderr) => {
                 if (error) {
                     console.error(`Command execution error: ${error.message}`);
+                    res.send(`Withdraw failed!!! Command execution error: ${error.message}`)
                     return;
                 }
                 if (stderr) {
@@ -116,13 +118,14 @@ app.post("/nativebridge/withdraw/exit", (req, res) => {
     const command = `./polygon-edge bridge exit --sender-key ${req.body.PKRootchain} --exit-helper ${req.body.ExitHelper} --exit-id ${req.body.IDexit} --root-json-rpc http://18.224.19.137:8545 --child-json-rpc http://localhost:10001`;
         exec(command, (error, stdout, stderr) => {
             if (error) {
-                    console.error(`Command execution error: ${error.message}`);
-                    return;
+                console.error(`Command execution error: ${error.message}`);
+                res.send(`Exit withdraw failed!!! Command execution error: ${error.message}`);
+                return;
             }
 
             if (stderr) {
-                    console.error(`Command execution stderr: ${stderr}`);
-                    return;
+                console.error(`Command execution stderr: ${stderr}`);
+                return;
             }
              res.send(`Command execution stdout: ${stdout}`);
           

@@ -79,7 +79,7 @@ echo "{
 \"chains\": [
 {
 \"name\": \"Mumbai testnet\",
-\"type\": \"public blockchain\",
+\"type\": \"ethereum\",
 \"id\": \"0\",
 \"endpoint\": \"$SRC_GATEWAY\",
 \"from\": \"$SRC_ADDR\",
@@ -88,12 +88,13 @@ echo "{
 \"erc20Handler\": \"$SRC_HANDLER\",
 \"genericHandler\": \"$SRC_HANDLER\",
 \"gasLimit\": \"1000000\",
-\"maxGasPrice\": \"10000000000\"
+\"maxGasPrice\": \"10000000000\",
+\"http\": \"true\"
 }
 },
 {
 \"name\": \"polygon edge\",
-\"type\": \"private blockchain\",
+\"type\": \"ethereum\",
 \"id\": \"1\",
 \"endpoint\": \"$DST_GATEWAY\",
 \"from\": \"$DST_ADDR\",
