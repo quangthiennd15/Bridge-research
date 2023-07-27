@@ -18,6 +18,8 @@ const db = new sqlite3.Database(db_name, (err) => {
     console.log("Successful connection to the database 'apptest.db'");
 });
 
+// ============================= NATIVE EDGE BRIDGE =============================================
+
 const { exec } = require("child_process");
 // Deposit Funtion
 app.post("/nativebridge/deposit", (req, res) => {
@@ -48,7 +50,7 @@ app.post("/nativebridge/deposit", (req, res) => {
     exec(command, (error, stdout, stderr) => {
             if (error) {
                 console.error(`Command execution error: ${error.message}`);
-                res.send(`Deposit failed!!! Command execution error: ${error.message}`)
+                res.send(`Deposit failed!!! Command execution error: ${error.message}`);
                 return;
             }
 
@@ -161,6 +163,7 @@ app.post("/chainbridge/sender", (req, res) => {
     exec(command1, (error, stdout, stderr) => {
         if (error) {
             console.error(`Command execution error: ${error.message}`);
+            res.send(`Deploy contract on layer 1 failed!!! Command execution error: ${error.message}`);
             return;
         }
 
@@ -184,6 +187,7 @@ app.post("/chainbridge/sender", (req, res) => {
         exec(command2, (error, stdout, stderr) => {
             if (error) {
                 console.error(`Command execution error: ${error.message}`);
+                res.send(`Config contract on layer1 failed!!! Command execution error: ${error.message}`);
                 return;
             }
             if (stderr) {
@@ -219,6 +223,7 @@ app.post("/chainbridge/receiver", (req, res) => {
     exec(command1, (error, stdout, stderr) => {
         if (error) {
             console.error(`Command execution error: ${error.message}`);
+            res.send(`Deploy contract on layer 2 failed!!! Command execution error: ${error.message}`);
             return;
         }
 
@@ -247,6 +252,7 @@ app.post("/chainbridge/receiver", (req, res) => {
         exec(command2, (error, stdout, stderr) => {
             if (error) {
                 console.error(`Command execution error: ${error.message}`);
+                res.send(`Config contract on layer2 failed!!! Command execution error: ${error.message}`);
                 return;
             }
             if (stderr) {
@@ -258,6 +264,7 @@ app.post("/chainbridge/receiver", (req, res) => {
             exec(command3, (error, stdout, stderr) => {
                 if (error) {
                     console.error(`Command execution error: ${error.message}`);
+                    res.send(`Register the token as mintable/burnable on the bridge failed!!! Command execution error: ${error.message}`);
                     return;
                 }
                 if (stderr) {
@@ -268,6 +275,7 @@ app.post("/chainbridge/receiver", (req, res) => {
                 exec(command4, (error, stdout, stderr) => {
                     if (error) {
                         console.error(`Command execution error: ${error.message}`);
+                        res.send(`Give permission for the handler to mint new tokens failed!!! Command execution error: ${error.message}`);
                         return;
                     }
                     if (stderr) {
@@ -334,6 +342,7 @@ app.post("/chainbridge/deposit", (req, res) => {
         exec(command2, (error, stdout, stderr) => {
             if (error) {
                 console.error(`Command execution error: ${error.message}`);
+                res.send(`Deposit failed!!! Command execution error: ${error.message}`);
                 return;
             }
             if (stderr) {
@@ -397,6 +406,7 @@ app.post("/chainbridge/withdraw", (req, res) => {
         exec(command2, (error, stdout, stderr) => {
             if (error) {
                 console.error(`Command execution error: ${error.message}`);
+                res.send(`Withdraw failed!!! Command execution error: ${error.message}`);
                 return;
             }
             if (stderr) {
