@@ -18,8 +18,73 @@ const db = new sqlite3.Database(db_name, (err) => {
     console.log("Successful connection to the database 'apptest.db'");
 });
 
-// ============================= NATIVE EDGE BRIDGE =============================================
+const sql_create = ` CREATE TABLE IF NOT EXISTS database (
+    ID INTEGER PRIMARY KEY AUTOINCREMENT,
 
+    StateTxn VARCHAR(100) NOT NULL,
+    TypeOfBridge VARCHAR(100) NOT NULL,
+
+    Sender VARCHAR(100) NOT NULL,
+    Receiver VARCHAR(100) NOT NULL,
+
+    Amount VARCHAR(100) NOT NULL,
+
+    Token VARCHAR(100) NOT NULL
+
+  );`;
+
+
+
+// User
+app.get("/bridge", (req, res) => {
+    db.run(sql_create, (err) => {
+      if (err) {
+        return console.error(err.message);
+      }
+      res.send("Successful creation of the database table");
+    });
+  });
+
+
+// Get information of user with ID transaction
+app.get("/bridge/getinforid/:id", (req, res) => {
+    const id = req.params.id; 
+    const query = `SELECT * FROM database WHERE ID = ?`;
+    db.get(query,[id], (err, row) => {
+      if (err) {
+        console.error("Error querying the database:", err);
+        return;
+      }
+  
+      if (!row) {
+        console.error("No matching record found in the database.");
+        return;
+      }
+      res.send(row);
+    });
+  });
+
+
+// Get information of user with address sender
+app.get("/bridge/getinforaddress/:address", (req, res) => {
+    const address = req.params.address; 
+    const query = `SELECT * FROM database WHERE Sender = ?`;
+    db.all(query,[address], (err, row) => {
+      if (err) {
+        console.error("Error querying the database:", err);
+        return;
+      }
+  
+      if (!row) {
+        console.error("No matching record found in the database.");
+        return;
+      }
+      res.send(row);
+    });
+  });
+
+
+// ============================= NATIVE EDGE BRIDGE =============================================
 const { exec } = require("child_process");
 // Deposit Funtion
 app.post("/nativebridge/deposit", (req, res) => {
@@ -31,109 +96,129 @@ app.post("/nativebridge/deposit", (req, res) => {
     if (!req.body.PKRootchain){
         errors.push("No Private key of account in rootchain specified");
     }
-    if (!req.body.AddTokenRootchain){
-        errors.push("No address of token in rootchain specified");
-    }
     if (!req.body.AccChildchain){
         errors.push("No account in childchain specified");
     }
+    if (!req.body.AddRootToken){
+        errors.push("No address of token in rootchain specified");
+    }
+
     if (!req.body.amount){
         errors.push("Amount must greater than 0");
     }
+ 
     if (errors.length){
         res.status(400).json({"error":errors.join(",")});
         return;
     }
- 
-    const command = `./polygon-edge bridge deposit-erc20 --sender-key ${req.body.PKRootchain} --receivers ${req.body.AccChildchain} --amounts ${req.body.amount} --root-token ${req.body.AddTokenRootchain} --root-predicate 0xCb4D6a35C5D3551b3BD0f306bCd642fe318eAD66 --json-rpc http://18.224.19.137:8545`;
+
+    const sql_insert = `INSERT INTO database (StateTxn, TypeOfBridge, Sender, Receiver, Amount, Token) VALUES (?,?,?,?,?,?)`;
+
+    const command = `./polygon-edge bridge deposit-erc20 --sender-key ${req.body.PKRootchain} --receivers ${req.body.AccChildchain} --amounts ${req.body.amount} --root-token ${req.body.AddRootToken} --root-predicate 0xb89D097Bf74AC754286087C91882905Eb5fe9F2d --json-rpc http://18.224.19.137:8545`;
 
     exec(command, (error, stdout, stderr) => {
-            if (error) {
-                console.error(`Command execution error: ${error.message}`);
-                res.send(`Deposit failed!!! Command execution error: ${error.message}`);
-                return;
-            }
+      if (error) {
+        db.run(sql_insert, ['Fail', 'Native bridge', `${req.body.AccRootchain}`, `${req.body.AccChildchain}`, `${req.body.amount}`, `${req.body.AddRootToken}`], function(err) {
+            res.status(500).send(`ID Transaction: ${this.lastID} \n Command execution error: ${error.message}`);
+      })
+        return;
+      }
 
-            if (stderr) {
-                console.error(`Command execution stderr: ${stderr}`);
-                return;
-            }
-            res.send(`Command execution stdout: ${stdout}`);
-    });
+      if (stderr) {
+            db.run(sql_insert, ['Fail', 'Native bridge', `${req.body.AccRootchain}`, `${req.body.AccChildchain}`, `${req.body.amount}`, `${req.body.AddRootToken}`], function(err) {
+                res.status(500).send(`ID Transaction: ${this.lastID} \n Command execution error: ${stderr}`);
+          })
+        return;
+      }
+
+      db.run(sql_insert, ['Successfull', 'Native bridge', `${req.body.AccRootchain}`, `${req.body.AccChildchain}`, `${req.body.amount}`, `${req.body.AddRootToken}`], function(err) {
+            res.status(200).send(`ID Transaction: ${this.lastID} \n Sender: ${req.body.AccRootchain} \n Receiver: ${req.body.AccChildchain} \n Amount: ${req.body.amount} \n Token: ${req.body.AddRootToken}`);
+      })
+      
+  });
 });
 
 // Withdraw Function
 app.post("/nativebridge/withdraw", (req, res) => {
     var errors=[];
-
     if (!req.body.AccRootchain){
         errors.push("No account in rootchain specified");
     }
     if (!req.body.PKRootchain){
         errors.push("No Private key of account in rootchain specified");
     }
+    if (!req.body.AccChildchain){
+        errors.push("No account in childchain specified");
+    }
+    if (!req.body.AddChildToken){
+        errors.push("No address of token in childchain specified");
+    }
     if (!req.body.amount){
         errors.push("Amount must greater than 0");
     }
-    if (!req.body.AddChildToken){
-        errors.push("No address child token specified");
-    }
 
     if (errors.length){
         res.status(400).json({"error":errors.join(",")});
         return;
     }
+
+    const sql_insert = `INSERT INTO database (StateTxn, TypeOfBridge, Sender, Receiver, Amount, Token) VALUES (?,?,?,?,?,?)`;
+
+
     const command = `./polygon-edge bridge withdraw-erc20 --sender-key ${req.body.PKRootchain} --receivers ${req.body.AccRootchain} --amounts ${req.body.amount} --child-predicate 0x0000000000000000000000000000000000001004 --child-token ${req.body.AddChildToken} --json-rpc http://localhost:10001`;
 
     exec(command, (error, stdout, stderr) => {
+
                 if (error) {
-                    console.error(`Command execution error: ${error.message}`);
-                    res.send(`Withdraw failed!!! Command execution error: ${error.message}`)
+                    db.run(sql_insert, ['Fail', 'Native bridge', `${req.body.AccChildchain}`, `${req.body.AccRootchain}`, `${req.body.amount}`, `${req.body.AddChildToken}`], function(err) {
+                        res.status(500).send(`ID Transaction: ${this.lastID} \n Command execution error: ${error.message}`);
+                })
                     return;
                 }
+            
                 if (stderr) {
-                    console.error(`Command execution stderr: ${stderr}`);
+                        db.run(sql_insert, ['Fail', 'Native bridge', `${req.body.AccChildchain}`, `${req.body.AccRootchain}`, `${req.body.amount}`, `${req.body.AddChildToken}`], function(err) {
+                            res.status(500).send(`ID Transaction: ${this.lastID} \n Command execution error: ${error.message}`);
+                    })
                     return;
                 }
-                res.send(`Time: ${hours}:${minutes}:${seconds} ${day}-${month}-${year}\n Command execution stdout: ${stdout}`); 
+                
+                const lines = stdout.split("\n");
+                let exitID = "";
+                for (const line of lines) {
+                    if (line.includes("Exit Event IDs")) {
+                        exitID = line.split(" ")[13]+ "";
+                        break;
+                    }
+                }
+             
+                const command_exit = `./polygon-edge bridge exit --sender-key ${req.body.PKRootchain} --exit-helper 0xc491BCBAfB3aF71C962DB35d91FC4858680D4D84 --exit-id ${exitID} --root-json-rpc http://18.224.19.137:8545 --child-json-rpc http://localhost:10001`;
+
+                setTimeout(() => {
+                    exec(command_exit, (error, stdout, stderr) => {
+                        if (error) {
+                            console.error(`Command execution error: ${error.message}`);
+                            res.send(`Withdraw failed!!! Command execution error: ${error.message}`);
+                            db.run(sql_insert, ['Fail', 'Native bridge', `${req.body.AccChildchain}`, `${req.body.AccRootchain}`, `${req.body.amount}`, `${req.body.AddChildToken}`]);
+            
+                            return;
+                        }
+            
+                        if (stderr) {
+                            console.error(`Command execution stderr: ${stderr}`);
+                            db.run(sql_insert, ['Fail', 'Native bridge', `${req.body.AccChildchain}`, `${req.body.AccRootchain}`, `${req.body.amount}`, `${req.body.AddChildToken}`])
+                            return;
+                        }
+                        db.run(sql_insert, ['Successfull', 'Native bridge', `${req.body.AccChildchain}`, `${req.body.AccRootchain}`, `${req.body.amount}`, `${req.body.AddChildToken}`], function(err) {
+                            res.status(200).send(`ID Transaction: ${this.lastID} \n Sender: ${req.body.AccChildchain} \n Receiver: ${req.body.AccRootchain} \n Amount: ${req.body.amount} \n Token: ${req.body.AddChildToken}`);
+                      })
+                      
+                });  
+                }, 5 * 60 * 1000); // 5 phút = 5 * 60 * 1000 milliseconds
+
+               
     });
 });
-
-
-// Exit Withdraw Function
-app.post("/nativebridge/withdraw/exit", (req, res) => {
-    var errors=[];
-    if (!req.body.PKRootchain){
-        errors.push("No Private key of account in rootchain specified");
-    }
-    if (!req.body.ExitHelper){
-        errors.push("No address exithelper specified");
-    }
-    if (!req.body.IDexit){
-        errors.push("No ID exit rootchain specified");
-    }
-    
-    if (errors.length){
-        res.status(400).json({"error":errors.join(",")});
-        return;
-    }
-    const command = `./polygon-edge bridge exit --sender-key ${req.body.PKRootchain} --exit-helper ${req.body.ExitHelper} --exit-id ${req.body.IDexit} --root-json-rpc http://18.224.19.137:8545 --child-json-rpc http://localhost:10001`;
-        exec(command, (error, stdout, stderr) => {
-            if (error) {
-                console.error(`Command execution error: ${error.message}`);
-                res.send(`Exit withdraw failed!!! Command execution error: ${error.message}`);
-                return;
-            }
-
-            if (stderr) {
-                console.error(`Command execution stderr: ${stderr}`);
-                return;
-            }
-             res.send(`Command execution stdout: ${stdout}`);
-          
-    });    
-});
-            
 
 // ============================= CHAINBRIDGE =============================================
 
@@ -326,30 +411,41 @@ app.post("/chainbridge/deposit", (req, res) => {
         return;
     }
 
+    const sql_insert = `INSERT INTO database (StateTxn, TypeOfBridge, Sender, Receiver, Amount, Token) VALUES (?,?,?,?,?,?)`;
+
     const command1 = `node chainbridge-deploy/cb-sol-cli/index.js --url ${req.body.SRC_GATEWAY} --privateKey ${req.body.SRC_PK} --gasPrice 10000000000 erc20 approve --amount ${req.body.amount} --erc20Address ${req.body.SRC_TOKEN} --recipient ${req.body.SRC_HANDLER}`;
     exec(command1, (error, stdout, stderr) => {
         if (error) {
-            console.error(`Command execution error: ${error.message}`);
+            db.run(sql_insert, ['Fail', 'Chain bridge', `${req.body.SRC_ADDR}`, `${req.body.DST_ADDR}`, `${req.body.amount}`, `${req.body.SRC_TOKEN}`], function(err) {
+                res.status(500).send(`ID Transaction: ${this.lastID} \n Command execution error: ${error.message}`);
+        })
             return;
         }
 
         if (stderr) {
-            console.error(`Command execution stderr: ${stderr}`);
+            db.run(sql_insert, ['Fail', 'Chain bridge', `${req.body.SRC_ADDR}`, `${req.body.DST_ADDR}`, `${req.body.amount}`, `${req.body.SRC_TOKEN}`], function(err) {
+                res.status(500).send(`ID Transaction: ${this.lastID} \n Command execution error: ${stderr}`);
+        })
             return;
         }
 
         const command2 = `node chainbridge-deploy/cb-sol-cli/index.js --url ${req.body.SRC_GATEWAY} --privateKey ${req.body.SRC_PK} --gasPrice 10000000000 erc20 deposit --amount ${req.body.amount} --dest 1 --bridge ${req.body.SRC_BRIDGE} --recipient ${req.body.DST_ADDR} --resourceId 0x000000000000000000000000000000c76ebe4a02bbc34786d860b355f5a5ce00`;
         exec(command2, (error, stdout, stderr) => {
             if (error) {
-                console.error(`Command execution error: ${error.message}`);
-                res.send(`Deposit failed!!! Command execution error: ${error.message}`);
+                db.run(sql_insert, ['Fail', 'Chain bridge', `${req.body.SRC_ADDR}`, `${req.body.DST_ADDR}`, `${req.body.amount}`, `${req.body.SRC_TOKEN}`], function(err) {
+                    res.status(500).send(`ID Transaction: ${this.lastID} \n Command execution error: ${error.message}`);
+            })
                 return;
             }
             if (stderr) {
-                console.error(`Command execution stderr: ${stderr}`);
+                db.run(sql_insert, ['Fail', 'Chain bridge', `${req.body.SRC_ADDR}`, `${req.body.DST_ADDR}`, `${req.body.amount}`, `${req.body.SRC_TOKEN}`], function(err) {
+                    res.status(500).send(`ID Transaction: ${this.lastID} \n Command execution error: ${stderr}`);
+            })
                 return;
             }
-                res.send(`Command execution stdout: ${stdout}`);
+            db.run(sql_insert, ['Successfull', 'Chain bridge', `${req.body.SRC_ADDR}`, `${req.body.DST_ADDR}`, `${req.body.amount}`, `${req.body.SRC_TOKEN}`], function(err) {
+                res.status(200).send(`ID Transaction: ${this.lastID} \n Sender: ${req.body.SRC_ADDR} \n Receiver: ${req.body.DST_ADDR} \n Amount: ${req.body.amount} \n Token: ${req.body.SRC_TOKEN}`);
+          })
         });
     });
 });
